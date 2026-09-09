@@ -4,6 +4,7 @@ import { ChevronDown, Copy, Printer } from 'lucide-react'
 import { formatBRL, formatDate } from '../hooks/useAsync'
 import { publicAsset } from '../lib/assets'
 import type { WorkOrder, Workshop } from '../lib/types'
+import { WORKSHOP_PROFILE, isPlaceholderWorkshop } from '../../shared/workshop-profile'
 
 export type WorkOrderPrintMode = 'a5-dupla' | 'segunda-via'
 
@@ -25,8 +26,28 @@ function formatPhone(value?: string) {
   return value || '—'
 }
 
+function resolvedWorkshop(workshop?: Workshop | null) {
+  if (!workshop || isPlaceholderWorkshop(workshop)) return WORKSHOP_PROFILE
+  return workshop
+}
+
+function workshopValue<K extends keyof typeof WORKSHOP_PROFILE>(workshop: Workshop | null | undefined, key: K) {
+  const source = resolvedWorkshop(workshop)
+  return (source[key] as string | null | undefined) || WORKSHOP_PROFILE[key] || ''
+}
+
 function workshopLine(workshop?: Workshop | null) {
-  return [workshop?.address, [workshop?.city, workshop?.state].filter(Boolean).join('/'), workshop?.zipCode].filter(Boolean).join(' · ')
+  const cityState = [workshopValue(workshop, 'city'), workshopValue(workshop, 'state')].filter(Boolean).join('-')
+  return [workshopValue(workshop, 'address'), cityState, workshopValue(workshop, 'zipCode')].filter(Boolean).join(' - ')
+}
+
+function workshopContact(workshop?: Workshop | null) {
+  const document = workshopValue(workshop, 'document')
+  return [
+    `Whats: ${formatPhone(workshopValue(workshop, 'phone'))}`,
+    workshopValue(workshop, 'email'),
+    document ? `CNPJ ${formatDocument(document)}` : '',
+  ].filter(Boolean).join(' | ')
 }
 
 function PrintCopy({
@@ -67,14 +88,10 @@ function PrintCopy({
     <article className={`os-print-copy${secondCopy ? ' is-second' : ''}`}>
       <header className="os-print-header">
         <div>
-          <img src={publicAsset('logo.jpg')} alt="Loja do Alemão Celulares" className="os-print-logo" />
-          <strong>{workshop?.name || 'Loja do Alemão Celulares'}</strong>
-          <small>
-            {workshop?.document ? `CNPJ ${formatDocument(workshop.document)}` : 'Assistência técnica'}
-            {workshop?.phone ? ` · ${formatPhone(workshop.phone)}` : ''}
-            {workshop?.email ? ` · ${workshop.email}` : ''}
-          </small>
-          {workshopLine(workshop) && <small>{workshopLine(workshop)}</small>}
+          <img src={publicAsset('logo.jpg')} alt={workshopValue(workshop, 'name')} className="os-print-logo" />
+          <strong>{workshopValue(workshop, 'name')}</strong>
+          <small>{workshopLine(workshop)}</small>
+          <small>{workshopContact(workshop)}</small>
         </div>
         <div className="os-print-os">
           <em>{viaLabel}</em>
@@ -113,38 +130,40 @@ function PrintCopy({
         </section>
       )}
 
-      <table className="os-print-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Tipo</th>
-            <th>Qtd</th>
-            <th>Unit.</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.length ? items.map((item) => (
-            <tr key={item.id}>
-              <td>{item.description}</td>
-              <td>{item.kind}</td>
-              <td>{item.quantity}</td>
-              <td>{formatBRL(item.unitPrice)}</td>
-              <td>{formatBRL(item.total)}</td>
-            </tr>
-          )) : (
-            <tr><td colSpan={5}>Nenhum serviço ou peça lançado.</td></tr>
-          )}
-        </tbody>
-      </table>
+      {items.length > 0 && (
+        <>
+          <table className="os-print-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Tipo</th>
+                <th>Qtd</th>
+                <th>Unit.</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.description}</td>
+                  <td>{item.kind}</td>
+                  <td>{item.quantity}</td>
+                  <td>{formatBRL(item.unitPrice)}</td>
+                  <td>{formatBRL(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <section className="os-print-totals">
-        <div><span>Serviços</span><b>{formatBRL(order.servicesTotal)}</b></div>
-        <div><span>Peças</span><b>{formatBRL(order.partsTotal)}</b></div>
-        {Number(order.discount) > 0 && <div><span>Desconto</span><b>{formatBRL(order.discount)}</b></div>}
-        {Number(order.surcharge) > 0 && <div><span>Acréscimo</span><b>{formatBRL(order.surcharge)}</b></div>}
-        <div className="os-print-grand"><span>Total</span><strong>{formatBRL(order.total)}</strong></div>
-      </section>
+          <section className="os-print-totals">
+            <div><span>Serviços</span><b>{formatBRL(order.servicesTotal)}</b></div>
+            <div><span>Peças</span><b>{formatBRL(order.partsTotal)}</b></div>
+            {Number(order.discount) > 0 && <div><span>Desconto</span><b>{formatBRL(order.discount)}</b></div>}
+            {Number(order.surcharge) > 0 && <div><span>Acréscimo</span><b>{formatBRL(order.surcharge)}</b></div>}
+            <div className="os-print-grand"><span>Total</span><strong>{formatBRL(order.total)}</strong></div>
+          </section>
+        </>
+      )}
 
       {order.notes && (
         <section className="os-print-block">

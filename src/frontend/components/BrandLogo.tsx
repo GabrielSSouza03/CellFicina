@@ -8,7 +8,7 @@ export function BrandLogo({ className = 'brand-logo' }: BrandLogoProps) {
   return (
     <img
       src={publicAsset('logo.jpg')}
-      alt="Loja do Alemão Celulares"
+      alt="Loja do Alemão"
       className={className}
     />
   )

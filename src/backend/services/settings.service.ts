@@ -21,13 +21,13 @@ export const settingsService = {
       where: { id: workshop.id },
       data: {
         name: data.name ?? workshop.name,
-        document: data.document,
-        phone: data.phone,
-        email: data.email,
-        address: data.address,
-        city: data.city,
-        state: data.state,
-        zipCode: data.zipCode,
+        document: data.document || null,
+        phone: data.phone || null,
+        email: data.email || null,
+        address: data.address || null,
+        city: data.city || null,
+        state: data.state || null,
+        zipCode: data.zipCode || null,
         settings: {
           update: {
             allowNegativeStock: data.allowNegativeStock,

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { getPrisma } from './client'
 import { logger } from '../utils/logger'
+import { WORKSHOP_PROFILE, isPlaceholderWorkshop } from '../../shared/workshop-profile'
 
 const PERMISSIONS = [
   'customers.read', 'customers.write', 'customers.delete',
@@ -27,8 +28,29 @@ const ROLE_MAP: Record<string, string[]> = {
 export async function seedIfEmpty() {
   const prisma = getPrisma()
   const users = await prisma.user.count()
-  if (users > 0) return
-  await seedDatabase()
+  if (users === 0) {
+    await seedDatabase()
+    return
+  }
+  await ensureWorkshopProfile()
+}
+
+async function ensureWorkshopProfile() {
+  const prisma = getPrisma()
+  const existing = await prisma.workshop.findFirst()
+  if (!existing) {
+    return prisma.workshop.create({
+      data: {
+        ...WORKSHOP_PROFILE,
+        settings: { create: { allowNegativeStock: false, lowStockThreshold: 5, quoteValidityDays: 15 } },
+      },
+    })
+  }
+  if (!isPlaceholderWorkshop(existing)) return existing
+  return prisma.workshop.update({
+    where: { id: existing.id },
+    data: WORKSHOP_PROFILE,
+  })
 }
 
 export async function seedDatabase() {
@@ -71,18 +93,7 @@ export async function seedDatabase() {
     },
   })
 
-  const existingWorkshop = await prisma.workshop.findFirst()
-  const workshop = existingWorkshop || await prisma.workshop.create({
-    data: {
-      name: 'Loja do Alemão Celulares',
-      document: '28123456000190',
-      phone: '1133334444',
-      email: 'contato@celularprime.com',
-      city: 'São Paulo',
-      state: 'SP',
-      settings: { create: { allowNegativeStock: false, lowStockThreshold: 5, quoteValidityDays: 15 } },
-    },
-  })
+  const workshop = await ensureWorkshopProfile()
 
   await prisma.paymentMethod.createMany({
     data: [

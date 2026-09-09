@@ -30,9 +30,12 @@ export function SettingsPage() {
       <div className="section-title"><span className="step"><Settings size={14} /></span><div><h2>Loja</h2><p>Dados da unidade principal.</p></div></div>
       <div className="form-grid">
         <label>Nome<input name="name" defaultValue={workshop?.name} /></label>
-        <label>Documento<input name="document" defaultValue={workshop?.document} /></label>
-        <label>Telefone<input name="phone" defaultValue={workshop?.phone} /></label>
+        <label>WhatsApp<input name="phone" defaultValue={workshop?.phone} /></label>
+        <label className="span-2">Endereço<input name="address" defaultValue={workshop?.address} /></label>
+        <label>Cidade<input name="city" defaultValue={workshop?.city} /></label>
+        <label>UF<input name="state" defaultValue={workshop?.state} maxLength={2} /></label>
         <label>E-mail<input name="email" defaultValue={workshop?.email} /></label>
+        <label>CNPJ<input name="document" defaultValue={workshop?.document} /></label>
       </div>
       <button className="btn primary" style={{ marginTop: 18 }}>Salvar configurações</button>
     </form>
