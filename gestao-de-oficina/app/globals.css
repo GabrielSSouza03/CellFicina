@@ -25,3 +25,12 @@ nav { display:flex; flex-direction:column; gap:4px; }.nav-item { display:flex; a
 footer { text-align:center; color:#a2acba; font-size:10px; padding:28px 0 18px; } footer span { margin:0 6px; color:#ced4dd; }.mobile-menu { display:none; border:0; background:none; color:#6f7c91; }
 @media (max-width: 1100px) { .sidebar { width:220px; flex-basis:220px; }.content { padding-left:22px; padding-right:22px; }.topbar { padding:0 22px; }.lower-grid, .analytics-grid { grid-template-columns:1fr; }.side-stack { display:grid; grid-template-columns:1fr 1fr; }.form-layout { grid-template-columns:1fr; }.order-summary { position:static; }.metric-grid { grid-template-columns:repeat(2,1fr); } }
 @media (max-width: 760px) { .sidebar { position:fixed; inset:0 auto 0 0; z-index:10; transform:translateX(-100%); transition:transform .2s; box-shadow:8px 0 25px #17203320; }.sidebar.open { transform:translateX(0); }.mobile-close, .mobile-menu { display:block; }.mobile-menu { margin-right:14px; }.topbar { padding:0 15px; }.breadcrumb { font-size:11px; }.top-actions { gap:11px; }.global-search { width:34px; padding:8px; }.global-search input, .global-search kbd, .profile-button span:not(.avatar), .profile-button svg { display:none; }.content { padding:24px 15px 8px; }.page-heading { align-items:flex-start; flex-direction:column; gap:17px; }.heading-actions { width:100%; }.heading-actions .btn { flex:1; }.metric-grid, .metric-grid.three, .side-stack { grid-template-columns:1fr; }.donut-wrap { justify-content:center; }.form-grid { grid-template-columns:1fr; }.span-2 { grid-column:auto; }.toolbar { flex-wrap:wrap; }.input-search { max-width:none; flex-basis:100%; }.module-hero { align-items:flex-start; flex-wrap:wrap; }.module-hero .btn { margin-left:63px; }.page-heading h1 { font-size:23px; } }
+.form-layout.single { grid-template-columns:minmax(0, 1fr); max-width:760px; }
+.flow-steps { display:flex; align-items:center; gap:0; margin:0 0 18px; padding:12px 16px; background:#fff; border:1px solid var(--border); border-radius:10px; }
+.flow-sep { width:28px; height:1px; background:#e7ebf1; margin:0 10px; }
+.flow-step { display:flex; align-items:center; gap:8px; color:#9aa4b4; font-size:12px; font-weight:600; }
+.flow-step i { display:grid; place-items:center; width:22px; height:22px; border-radius:6px; background:#f1f4f8; font-size:10px; font-style:normal; }
+.flow-step.active { color:#2f6df6; }
+.flow-step.active i { background:#eaf1ff; color:#2f6df6; }
+.flow-step.done { color:#269d6c; }
+.flow-step.done i { background:#e5f7ee; color:#269d6c; }

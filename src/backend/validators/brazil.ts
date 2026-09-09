@@ -1,5 +1,5 @@
 export function onlyDigits(value: string): string {
-  return value.replace(/\D/g, '')
+  return (value || '').replace(/\D/g, '')
 }
 
 export function isValidCPF(value: string): boolean {

@@ -18,35 +18,41 @@ export const vehicleService = {
   },
   async create(input: unknown) {
     const data = vehicleSchema.parse(input)
-    const customer = await getPrisma().customer.findUnique({ where: { id: data.customerId } })
-    if (!customer) throw new NotFoundError('Cliente não encontrado.')
+    if (data.customerId) {
+      const customer = await getPrisma().customer.findUnique({ where: { id: data.customerId } })
+      if (!customer) throw new NotFoundError('Cliente não encontrado.')
+    }
     const created = await vehicleRepository.create({
       plate: '',
-      brand: data.brand,
-      model: data.model,
+      brand: data.brand || '',
+      model: data.model || '',
       version: data.version,
       year: data.year,
       mileage: data.mileage,
       chassis: data.chassis,
       color: data.color,
       notes: data.notes,
-      customer: { connect: { id: data.customerId } },
+      ...(data.customerId ? { customer: { connect: { id: data.customerId } } } : {}),
     })
     return serializeVehicle(created)
   },
   async update(id: string, input: unknown) {
     await this.get(id)
     const data = vehicleSchema.parse(input)
+    if (data.customerId) {
+      const customer = await getPrisma().customer.findUnique({ where: { id: data.customerId } })
+      if (!customer) throw new NotFoundError('Cliente não encontrado.')
+    }
     const updated = await vehicleRepository.update(id, {
-      brand: data.brand,
-      model: data.model,
+      brand: data.brand || '',
+      model: data.model || '',
       version: data.version,
       year: data.year,
       mileage: data.mileage,
       chassis: data.chassis,
       color: data.color,
       notes: data.notes,
-      customer: { connect: { id: data.customerId } },
+      customer: data.customerId ? { connect: { id: data.customerId } } : { disconnect: true },
     })
     return serializeVehicle(updated)
   },

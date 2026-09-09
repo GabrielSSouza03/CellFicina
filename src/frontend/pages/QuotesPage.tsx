@@ -51,8 +51,8 @@ export function QuoteFormPage({ id, onNavigate }: { id?: string; onNavigate: (la
       } finally { setSaving(false) }
     }}>
       <div className="form-grid">
-        <label>Cliente<select name="customerId" defaultValue={quote?.customerId} required>{(customers.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label>Aparelho<select name="vehicleId" defaultValue={quote?.vehicleId}>{(vehicles.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}</option>)}</select></label>
+        <label>Cliente<select name="customerId" defaultValue={quote?.customerId || ''}><option value="">Selecione o cliente</option>{(customers.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>Aparelho<select name="vehicleId" defaultValue={quote?.vehicleId || ''}><option value="">Selecione o aparelho</option>{(vehicles.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}</option>)}</select></label>
         <label>Status<select name="status" defaultValue={quote?.status || 'DRAFT'}>{Object.entries(quoteLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>Desconto<input name="discount" defaultValue={quote?.discount || '0'} /></label>
         <label className="span-2">Observações<textarea name="notes" defaultValue={quote?.notes} /></label>

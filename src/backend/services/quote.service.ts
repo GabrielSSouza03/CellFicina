@@ -76,7 +76,7 @@ export const quoteService = {
         surcharge: totals.surcharge.toFixed(2),
         subtotal: totals.subtotal.toFixed(2),
         total: totals.total.toFixed(2),
-        customer: { connect: { id: data.customerId } },
+        customer: data.customerId ? { connect: { id: data.customerId } } : undefined,
         vehicle: data.vehicleId ? { connect: { id: data.vehicleId } } : undefined,
         items: { create: items },
       },
@@ -120,7 +120,7 @@ export const quoteService = {
         surcharge: totals.surcharge.toFixed(2),
         subtotal: totals.subtotal.toFixed(2),
         total: totals.total.toFixed(2),
-        customer: { connect: { id: data.customerId } },
+        customer: data.customerId ? { connect: { id: data.customerId } } : { disconnect: true },
         vehicle: data.vehicleId ? { connect: { id: data.vehicleId } } : { disconnect: true },
         items: { create: items },
       },
@@ -132,10 +132,9 @@ export const quoteService = {
     const quote = await getPrisma().quote.findUnique({ where: { id }, include: { items: true } })
     if (!quote) throw new NotFoundError('Orçamento não encontrado.')
     if (quote.status !== 'APPROVED') throw new AppError('Somente orçamentos aprovados podem virar OS.')
-    if (!quote.vehicleId) throw new AppError('O orçamento precisa de um aparelho para gerar a OS.')
     const order = await workOrderService.create({
-      customerId: quote.customerId,
-      vehicleId: quote.vehicleId,
+      customerId: quote.customerId || undefined,
+      vehicleId: quote.vehicleId || undefined,
       notes: quote.notes,
       discount: String(quote.discount),
       surcharge: String(quote.surcharge),

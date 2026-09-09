@@ -5,7 +5,7 @@ import { workOrdersService } from '../services/work-orders'
 import { customersService } from '../services/customers'
 import { vehiclesService } from '../services/vehicles'
 import { productsService, servicesService } from '../services/products'
-import { EmptyBlock, ErrorBanner, LoadingBlock, Pagination } from '../components/MetricCard'
+import { EmptyBlock, ErrorBanner, FlowSteps, LoadingBlock, Pagination } from '../components/MetricCard'
 import { WorkOrderPrintDocument, WorkOrderPrintMenu, serializePrintDocument, type WorkOrderPrintMode } from '../components/WorkOrderPrint'
 import { formatBRL, formatDateTime, initials, statusStyles, useAsync } from '../hooks/useAsync'
 import { useToast } from '../context/ToastContext'
@@ -38,20 +38,27 @@ export function WorkOrdersPage({ onNavigate }: { onNavigate: (label: string) => 
   </>
 }
 
-export function WorkOrderFormPage({ id, onNavigate }: { id?: string; onNavigate: (label: string) => void }) {
+const NEW_DEVICE = '__new__'
+
+export function WorkOrderFormPage({ id, customerId: presetCustomerId, onNavigate }: { id?: string; customerId?: string; onNavigate: (label: string) => void }) {
   const toast = useToast()
   const customers = useAsync(() => customersService.list({ page: 1, pageSize: 100 }), [])
+  const presetCustomer = useAsync(() => presetCustomerId ? customersService.get(presetCustomerId) : Promise.resolve(null), [presetCustomerId])
   const services = useAsync(() => servicesService.list({ page: 1, pageSize: 100 }), [])
   const products = useAsync(() => productsService.list({ page: 1, pageSize: 100 }), [])
   const users = useAsync(() => settingsService.get(), [])
   const existing = useAsync(() => id ? workOrdersService.get(id) : Promise.resolve(null), [id])
-  const [customerId, setCustomerId] = useState('')
+  const [customerId, setCustomerId] = useState(presetCustomerId || '')
+  const [vehicleId, setVehicleId] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [printMode, setPrintMode] = useState<WorkOrderPrintMode>('a5-dupla')
   const order = existing.data as WorkOrder | null
   const workshop = (users.data as { workshop?: Workshop } | null)?.workshop
-  const vehicles = useAsync(() => vehiclesService.list({ page: 1, pageSize: 100, customerId: customerId || order?.customerId || '' }), [customerId, order?.customerId])
+  const resolvedCustomerId = customerId || order?.customerId || presetCustomerId || ''
+  const vehicles = useAsync(() => vehiclesService.list({ page: 1, pageSize: 100, customerId: resolvedCustomerId }), [resolvedCustomerId])
+  const creating = !id
+  const newDevice = creating && (vehicleId === NEW_DEVICE || !vehicleId)
 
   async function printOrder(mode: WorkOrderPrintMode) {
     flushSync(() => setPrintMode(mode))
@@ -69,8 +76,14 @@ export function WorkOrderFormPage({ id, onNavigate }: { id?: string; onNavigate:
     }
   }
 
-  const selectedCustomer = useMemo(() => (customers.data?.items || []).find((item) => item.id === (customerId || order?.customerId)), [customers.data, customerId, order])
-  const selectedVehicle = useMemo(() => (vehicles.data?.items || []).find((item) => item.id === order?.vehicleId), [vehicles.data, order])
+  const selectedCustomer = useMemo(
+    () => presetCustomer.data || (customers.data?.items || []).find((item) => item.id === resolvedCustomerId),
+    [presetCustomer.data, customers.data, resolvedCustomerId],
+  )
+  const selectedVehicle = useMemo(
+    () => (vehicles.data?.items || []).find((item) => item.id === (vehicleId && vehicleId !== NEW_DEVICE ? vehicleId : order?.vehicleId)),
+    [vehicles.data, vehicleId, order],
+  )
 
   if (id && existing.loading) return <LoadingBlock />
 
@@ -78,9 +91,30 @@ export function WorkOrderFormPage({ id, onNavigate }: { id?: string; onNavigate:
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const payload = Object.fromEntries(form.entries())
+    const deviceBrand = String(payload.deviceBrand || '').trim()
+    const deviceModel = String(payload.deviceModel || '').trim()
+    const deviceChassis = String(payload.deviceChassis || '').trim()
+    delete payload.deviceBrand
+    delete payload.deviceModel
+    delete payload.deviceChassis
     setSaving(true); setFormError('')
     try {
-      const saved = id ? await workOrdersService.update(id, payload) : await workOrdersService.create({ ...payload, status: sendQuote ? 'WAITING_APPROVAL' : 'DRAFT' })
+      const nextCustomerId = String(payload.customerId || resolvedCustomerId)
+      let nextVehicleId = String(payload.vehicleId || '')
+      if (nextVehicleId === NEW_DEVICE) nextVehicleId = ''
+      if (!id && !nextVehicleId && (deviceBrand || deviceModel || deviceChassis)) {
+        const device = await vehiclesService.create({
+          customerId: nextCustomerId,
+          brand: deviceBrand,
+          model: deviceModel,
+          chassis: deviceChassis,
+          mileage: payload.mileage,
+        })
+        nextVehicleId = device.id
+      }
+      const saved = id
+        ? await workOrdersService.update(id, payload)
+        : await workOrdersService.create({ ...payload, customerId: nextCustomerId, vehicleId: nextVehicleId, status: sendQuote ? 'WAITING_APPROVAL' : 'DRAFT' })
       toast.push('success', id ? 'Ordem de serviço atualizada.' : 'Ordem de serviço salva com sucesso.')
       onNavigate(`OS:${saved.id}`)
     } catch (err) {
@@ -89,17 +123,40 @@ export function WorkOrderFormPage({ id, onNavigate }: { id?: string; onNavigate:
   }
 
   return <>
-    <div className="page-heading"><div><p className="eyebrow">Ordens de serviço / {id ? order?.numberLabel : 'Nova'}</p><h1>{id ? `Ordem ${order?.numberLabel}` : 'Nova ordem de serviço'}</h1><p className="subheading">Preencha os dados para iniciar a manutenção técnica.</p></div><div className="heading-actions">{id && order && <WorkOrderPrintMenu onPrint={printOrder} />}<button className="btn secondary" onClick={() => onNavigate('Ordens de Serviço')}><X size={16}/> Cancelar</button></div></div>
+    <div className="page-heading"><div><p className="eyebrow">Ordens de serviço / {id ? order?.numberLabel : 'Nova'}</p><h1>{id ? `Ordem ${order?.numberLabel}` : 'Cadastro da OS'}</h1><p className="subheading">{creating && presetCustomerId ? 'Cliente cadastrado. Finalize os dados da manutenção.' : 'Preencha os dados para iniciar a manutenção técnica.'}</p></div><div className="heading-actions">{id && order && <WorkOrderPrintMenu onPrint={printOrder} />}<button className="btn secondary" onClick={() => onNavigate(creating && presetCustomerId ? 'Nova Ordem de Serviço' : 'Ordens de Serviço')}><X size={16}/> {creating && presetCustomerId ? 'Voltar' : 'Cancelar'}</button></div></div>
+    {creating && presetCustomerId && <FlowSteps steps={['Cliente', 'Ordem de serviço']} current={1} />}
     {id && order && <WorkOrderPrintDocument order={order} workshop={workshop} mode={printMode} />}
     {formError && <ErrorBanner message={formError} />}
     <form className="form-layout" onSubmit={(e) => save(e)}>
       <div className="form-main">
         <div className="panel form-panel"><div className="section-title"><span className="step">01</span><div><h2>Cliente e aparelho</h2><p>Qual celular será reparado?</p></div></div>
           <div className="form-grid">
-            <label>Cliente existente<select name="customerId" defaultValue={order?.customerId} onChange={(e) => setCustomerId(e.target.value)} required>{(customers.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <label>Aparelho<select name="vehicleId" defaultValue={order?.vehicleId} required>{(vehicles.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}{item.chassis ? ` — ${item.chassis}` : ''}</option>)}</select></label>
+            {creating && presetCustomerId ? (
+              <>
+                <input type="hidden" name="customerId" value={presetCustomerId} />
+                <label>Cliente<input value={selectedCustomer?.name || ''} readOnly /></label>
+              </>
+            ) : (
+              <label>Cliente existente<select name="customerId" defaultValue={order?.customerId || ''} onChange={(e) => { setCustomerId(e.target.value); setVehicleId('') }}><option value="">Selecione o cliente</option>{(customers.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            )}
+            <label>Aparelho{creating ? (
+              <select name="vehicleId" value={vehicleId || NEW_DEVICE} onChange={(e) => setVehicleId(e.target.value)}>
+                <option value={NEW_DEVICE}>Cadastrar novo aparelho</option>
+                {(vehicles.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}{item.chassis ? ` — ${item.chassis}` : ''}</option>)}
+              </select>
+            ) : (
+              <select name="vehicleId" defaultValue={order?.vehicleId || ''}>
+                <option value="">Selecione o aparelho</option>
+                {(vehicles.data?.items || []).map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}{item.chassis ? ` — ${item.chassis}` : ''}</option>)}
+              </select>
+            )}</label>
+            {newDevice && <>
+              <label>Marca<input name="deviceBrand" placeholder="Apple, Samsung..." /></label>
+              <label>Modelo<input name="deviceModel" placeholder="iPhone 13, Galaxy S23..." /></label>
+              <label>Número de série<input name="deviceChassis" /></label>
+            </>}
             <label>Ciclos de bateria<input name="mileage" defaultValue={order?.mileage ?? selectedVehicle?.mileage} /></label>
-            <label>Técnico responsável<select name="mechanicId" defaultValue={order?.mechanicId}>{((users.data as any)?.users || []).map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+            <label>Técnico responsável<select name="mechanicId" defaultValue={order?.mechanicId || ''}><option value="">Selecione o técnico</option>{((users.data as any)?.users || []).map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           </div>
         </div>
         <div className="panel form-panel"><div className="section-title"><span className="step">02</span><div><h2>Detalhes do atendimento</h2><p>Informações importantes sobre o serviço.</p></div></div>
@@ -119,7 +176,7 @@ export function WorkOrderFormPage({ id, onNavigate }: { id?: string; onNavigate:
       </div>
       <aside className="order-summary panel">
         <div className="summary-title"><h2>Resumo da ordem</h2><span className={`status ${statusStyles[order?.statusLabel || 'Rascunho']}`}>{order?.statusLabel || 'Orçamento'}</span></div>
-        <div className="summary-client"><span className="avatar large">{initials(selectedCustomer?.name || order?.customerName)}</span><div><strong>{selectedCustomer?.name || order?.customerName || 'Cliente'}</strong><small>{order?.vehicleLabel || 'Selecione o aparelho'}</small></div></div>
+        <div className="summary-client"><span className="avatar large">{initials(selectedCustomer?.name || order?.customerName)}</span><div><strong>{selectedCustomer?.name || order?.customerName || 'Cliente'}</strong><small>{selectedVehicle ? `${selectedVehicle.brand} ${selectedVehicle.model}` : newDevice ? 'Novo aparelho' : order?.vehicleLabel || 'Selecione o aparelho'}</small></div></div>
         <div className="summary-lines"><div><span>Serviços <small>{order?.services?.length || 0} item</small></span><b>{formatBRL(order?.servicesTotal)}</b></div><div><span>Peças <small>{order?.parts?.length || 0} item</small></span><b>{formatBRL(order?.partsTotal)}</b></div><div><span>Desconto</span><b>{formatBRL(order?.discount)}</b></div></div>
         <div className="summary-total"><span>Total da ordem</span><strong>{formatBRL(order?.total)}</strong></div>
         <button className="btn primary wide" disabled={saving}>{saving ? 'Salvando...' : 'Salvar ordem'}</button>

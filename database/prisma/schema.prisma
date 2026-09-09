@@ -111,7 +111,7 @@ model Customer {
 
 model Vehicle {
   id         String      @id @default(cuid())
-  customerId String
+  customerId String?
   plate      String
   brand      String
   model      String
@@ -123,7 +123,7 @@ model Vehicle {
   notes      String?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  customer   Customer    @relation(fields: [customerId], references: [id])
+  customer   Customer?   @relation(fields: [customerId], references: [id])
   workOrders WorkOrder[]
   quotes     Quote[]
 
@@ -211,8 +211,8 @@ model Service {
 model WorkOrder {
   id            String              @id @default(cuid())
   number        Int                 @unique
-  customerId    String
-  vehicleId     String
+  customerId    String?
+  vehicleId     String?
   mechanicId    String?
   status        String              @default("DRAFT")
   mileage       Int?
@@ -229,8 +229,8 @@ model WorkOrder {
   quoteId       String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
-  customer      Customer            @relation(fields: [customerId], references: [id])
-  vehicle       Vehicle             @relation(fields: [vehicleId], references: [id])
+  customer      Customer?           @relation(fields: [customerId], references: [id])
+  vehicle       Vehicle?            @relation(fields: [vehicleId], references: [id])
   mechanic      User?               @relation("Mechanic", fields: [mechanicId], references: [id])
   quote         Quote?              @relation(fields: [quoteId], references: [id])
   items         WorkOrderItem[]
@@ -317,7 +317,7 @@ model WorkOrderHistory {
 model Quote {
   id         String      @id @default(cuid())
   number     Int         @unique
-  customerId String
+  customerId String?
   vehicleId  String?
   status     String      @default("DRAFT")
   validUntil DateTime?
@@ -328,7 +328,7 @@ model Quote {
   total      Decimal     @default(0)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  customer   Customer    @relation(fields: [customerId], references: [id])
+  customer   Customer?   @relation(fields: [customerId], references: [id])
   vehicle    Vehicle?    @relation(fields: [vehicleId], references: [id])
   items      QuoteItem[]
   workOrders WorkOrder[]

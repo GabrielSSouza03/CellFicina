@@ -104,8 +104,8 @@ export const workOrderService = {
         deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : undefined,
         discount: data.discount,
         surcharge: data.surcharge,
-        customer: { connect: { id: data.customerId } },
-        vehicle: { connect: { id: data.vehicleId } },
+        ...(data.customerId ? { customer: { connect: { id: data.customerId } } } : {}),
+        ...(data.vehicleId ? { vehicle: { connect: { id: data.vehicleId } } } : {}),
         mechanic: data.mechanicId ? { connect: { id: data.mechanicId } } : undefined,
         history: {
           create: { toStatus: data.status || 'DRAFT', note: 'Ordem criada', userId },
@@ -113,7 +113,7 @@ export const workOrderService = {
       },
       include: includeOrder,
     })
-    if (data.mileage !== undefined) {
+    if (data.mileage !== undefined && data.vehicleId) {
       await prisma.vehicle.update({ where: { id: data.vehicleId }, data: { mileage: data.mileage } })
     }
     logger.info('work-order', `OS ${created.number} criada`)
@@ -136,8 +136,8 @@ export const workOrderService = {
         deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : undefined,
         discount: data.discount,
         surcharge: data.surcharge,
-        customer: { connect: { id: data.customerId } },
-        vehicle: { connect: { id: data.vehicleId } },
+        customer: data.customerId ? { connect: { id: data.customerId } } : { disconnect: true },
+        vehicle: data.vehicleId ? { connect: { id: data.vehicleId } } : { disconnect: true },
         mechanic: data.mechanicId ? { connect: { id: data.mechanicId } } : { disconnect: true },
       },
     })

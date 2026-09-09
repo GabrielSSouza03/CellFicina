@@ -22,6 +22,7 @@ export async function startServer(port: number) {
       const server = app.listen(chosen, '127.0.0.1')
       server.once('error', (error: NodeJS.ErrnoException) => {
         if (chosen !== 0 && error.code === 'EADDRINUSE') {
+          logger.warn('api', `Porta ${chosen} já está em uso. Encerrando a instância antiga ou escolhendo outra porta.`)
           listen(0).then(resolve, reject)
           return
         }

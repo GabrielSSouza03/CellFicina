@@ -46,9 +46,9 @@ export function VehicleFormPage({ id, onNavigate }: { id?: string; onNavigate: (
       } finally { setSaving(false) }
     }}>
       <div className="form-grid">
-        <label>Cliente<select name="customerId" defaultValue={vehicle?.customerId} required>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-        <label>Marca<input name="brand" defaultValue={vehicle?.brand} required /></label>
-        <label>Modelo<input name="model" defaultValue={vehicle?.model} required /></label>
+        <label>Cliente<select name="customerId" defaultValue={vehicle?.customerId || ''}><option value="">Selecione o cliente</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        <label>Marca<input name="brand" defaultValue={vehicle?.brand} /></label>
+        <label>Modelo<input name="model" defaultValue={vehicle?.model} /></label>
         <label>Armazenamento / versão<input name="version" defaultValue={vehicle?.version} placeholder="128 GB" /></label>
         <label>Ano<input name="year" type="number" defaultValue={vehicle?.year} /></label>
         <label>Ciclos de bateria<input name="mileage" type="number" defaultValue={vehicle?.mileage ?? 0} /></label>

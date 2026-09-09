@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MoreHorizontal, Plus, Search, SlidersHorizontal, X } from 'lucide-react'
 import { customersService } from '../services/customers'
-import { EmptyBlock, ErrorBanner, LoadingBlock, Pagination } from '../components/MetricCard'
+import { EmptyBlock, ErrorBanner, FlowSteps, LoadingBlock, Pagination } from '../components/MetricCard'
 import { formatDate, initials, useAsync } from '../hooks/useAsync'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -104,7 +104,7 @@ export function CustomersPage({ onNavigate }: { onNavigate: (label: string) => v
   </>
 }
 
-export function CustomerFormPage({ id, onNavigate }: { id?: string; onNavigate: (label: string) => void }) {
+export function CustomerFormPage({ id, onNavigate, continueTo }: { id?: string; onNavigate: (label: string) => void; continueTo?: 'os' }) {
   const toast = useToast()
   const { user } = useAuth()
   const existing = useAsync(() => id ? customersService.get(id) : Promise.resolve(null), [id])
@@ -112,8 +112,19 @@ export function CustomerFormPage({ id, onNavigate }: { id?: string; onNavigate: 
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [formError, setFormError] = useState('')
+  const [existingSearch, setExistingSearch] = useState('')
   const customer = existing.data as Customer | null
   const showDelete = Boolean(id && canDeleteCustomers(user))
+  const openingOrder = continueTo === 'os' && !id
+  const cancelTarget = openingOrder ? 'Ordens de Serviço' : 'Clientes'
+  const matches = useAsync(
+    () => openingOrder ? customersService.list({ search: existingSearch, page: 1, pageSize: 5 }) : Promise.resolve(null),
+    [openingOrder, existingSearch],
+  )
+
+  function goToOrder(customerId: string) {
+    onNavigate(`Nova Ordem de Serviço:${customerId}`)
+  }
 
   async function removeCustomer() {
     if (!id) return
@@ -133,40 +144,63 @@ export function CustomerFormPage({ id, onNavigate }: { id?: string; onNavigate: 
   if (id && existing.loading) return <LoadingBlock />
 
   return <>
-    <div className="page-heading"><div><p className="eyebrow">Clientes / {id ? 'Editar' : 'Novo'}</p><h1>{id ? 'Editar cliente' : 'Novo cliente'}</h1><p className="subheading">Preencha os dados cadastrais do cliente.</p></div>
+    <div className="page-heading"><div><p className="eyebrow">{openingOrder ? 'Ordens de serviço / Nova' : `Clientes / ${id ? 'Editar' : 'Novo'}`}</p><h1>{openingOrder ? 'Pré-cadastro do cliente' : id ? 'Editar cliente' : 'Novo cliente'}</h1><p className="subheading">{openingOrder ? 'Cadastre o cliente para abrir a ordem de serviço.' : 'Preencha os dados cadastrais do cliente.'}</p></div>
       <div className="heading-actions">
         {showDelete && <button type="button" className="btn danger" onClick={() => setConfirmDelete(true)}>Excluir</button>}
-        <button className="btn secondary" onClick={() => onNavigate('Clientes')}><X size={16}/> Cancelar</button>
+        <button className="btn secondary" onClick={() => onNavigate(cancelTarget)}><X size={16}/> Cancelar</button>
       </div>
     </div>
+    {openingOrder && <FlowSteps steps={['Cliente', 'Ordem de serviço']} current={0} />}
     {formError && <ErrorBanner message={formError} />}
-    <form className="form-layout" onSubmit={async (event) => {
+    <form className={`form-layout${openingOrder ? ' single' : ''}`} onSubmit={async (event) => {
       event.preventDefault()
       const form = new FormData(event.currentTarget)
       const payload = Object.fromEntries(form.entries())
       setSaving(true)
       setFormError('')
       try {
-        if (id) await customersService.update(id, payload)
-        else await customersService.create(payload)
-        toast.push('success', 'Cliente cadastrado com sucesso.')
-        onNavigate('Clientes')
+        if (id) {
+          await customersService.update(id, payload)
+          toast.push('success', 'Cliente cadastrado com sucesso.')
+          onNavigate('Clientes')
+        } else {
+          const created = await customersService.create(payload)
+          toast.push('success', openingOrder ? 'Cliente cadastrado. Continue a ordem de serviço.' : 'Cliente cadastrado com sucesso.')
+          if (openingOrder) goToOrder(created.id)
+          else onNavigate('Clientes')
+        }
       } catch (err) {
         setFormError(err instanceof ApiError ? err.message : 'Não foi possível salvar o cliente.')
       } finally {
         setSaving(false)
       }
     }}>
-      <div className="form-main"><div className="panel form-panel"><div className="section-title"><span className="step">01</span><div><h2>Dados do cliente</h2><p>Informações principais de identificação.</p></div></div>
+      <div className="form-main"><div className="panel form-panel"><div className="section-title"><span className="step">01</span><div><h2>Dados do cliente</h2><p>{openingOrder ? 'Preencha o pré-cadastro para seguir para a OS.' : 'Informações principais de identificação.'}</p></div></div>
+        {openingOrder && (
+          <>
+            <div className="form-grid">
+              <label className="span-2">Cliente já cadastrado<input value={existingSearch} onChange={(e) => setExistingSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} placeholder="Buscar por nome, CPF ou telefone..." /></label>
+            </div>
+            {existingSearch.trim() && (
+              <div className="history-list" style={{ margin: '8px 0 18px' }}>
+                {(matches.data?.items || []).length === 0 ? <p className="muted">Nenhum cliente encontrado. Cadastre abaixo.</p> : matches.data!.items.map((row) => (
+                  <button type="button" key={row.id} className="history-item pick-row" onClick={() => goToOrder(row.id)}>
+                    <div><strong>{row.name}</strong><small>{row.documentFormatted} · {row.phoneFormatted}</small></div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
         <div className="form-grid">
-          <label className="span-2">Nome<input name="name" defaultValue={customer?.name} required /></label>
-          <label>CPF/CNPJ<input name="document" defaultValue={customer?.document} required /></label>
-          <label>Telefone<input name="phone" defaultValue={customer?.phone} required /></label>
-          <label>E-mail<input name="email" type="email" defaultValue={customer?.email} /></label>
+          <label className="span-2">Nome<input name="name" defaultValue={customer?.name} /></label>
+          <label>CPF/CNPJ<input name="document" defaultValue={customer?.document} /></label>
+          <label>Telefone<input name="phone" defaultValue={customer?.phone} /></label>
+          <label>E-mail<input name="email" defaultValue={customer?.email} /></label>
           <label>Cidade<input name="city" defaultValue={customer?.city} /></label>
           <label className="span-2">Observações<textarea name="notes" defaultValue={customer?.notes} /></label>
         </div>
-        <button className="btn primary" disabled={saving} style={{ marginTop: 18 }}>{saving ? 'Salvando...' : 'Salvar cliente'}</button>
+        <button className="btn primary" disabled={saving} style={{ marginTop: 18 }}>{saving ? 'Salvando...' : openingOrder ? 'Continuar para a OS' : 'Salvar cliente'}</button>
       </div></div>
     </form>
     {confirmDelete && customer && <ConfirmCustomerDelete name={customer.name} deleting={deleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void removeCustomer()} />}

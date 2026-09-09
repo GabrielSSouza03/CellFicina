@@ -1,7 +1,16 @@
 import { z } from 'zod'
-import { documentTypeOf, isValidDocument, isValidPhone } from './brazil'
+import { documentTypeOf } from './brazil'
 
-const moneyField = z.union([z.string(), z.number()]).transform((value) => String(value))
+const blankToUndefined = (value: unknown) => (value === '' || value === null || value === undefined ? undefined : value)
+
+const optionalText = z.union([z.string(), z.undefined(), z.null()]).transform((value) => (value ?? '').trim())
+
+const optionalId = z.preprocess(blankToUndefined, z.string().min(1).optional())
+
+const moneyField = z.union([z.string(), z.number()]).optional().transform((value) => {
+  if (value === '' || value === undefined || value === null) return '0'
+  return String(value)
+})
 
 export const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -10,10 +19,10 @@ export const paginationQuery = z.object({
 })
 
 export const customerSchema = z.object({
-  name: z.string().trim().min(3, 'Informe o nome completo do cliente.'),
-  document: z.string().refine(isValidDocument, 'CPF ou CNPJ inválido.'),
-  email: z.string().email('E-mail inválido.').optional().or(z.literal('')).transform((v) => v || undefined),
-  phone: z.string().refine(isValidPhone, 'Telefone inválido.'),
+  name: optionalText,
+  document: optionalText,
+  email: optionalText.transform((value) => value || undefined),
+  phone: optionalText,
   phone2: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -26,23 +35,20 @@ export const customerSchema = z.object({
 }))
 
 export const vehicleSchema = z.object({
-  customerId: z.string().min(1, 'Selecione o cliente.'),
-  brand: z.string().trim().min(2, 'Informe a marca.'),
-  model: z.string().trim().min(1, 'Informe o modelo.'),
+  customerId: optionalId,
+  brand: optionalText,
+  model: optionalText,
   version: z.string().optional(),
-  year: z.preprocess(
-    (value) => (value === '' || value === null || value === undefined ? undefined : value),
-    z.coerce.number().int().min(1950).max(new Date().getFullYear() + 1).optional(),
-  ),
-  mileage: z.coerce.number().int().min(0).default(0),
+  year: z.preprocess(blankToUndefined, z.coerce.number().int().optional()),
+  mileage: z.preprocess((value) => (value === '' || value == null ? 0 : value), z.coerce.number().int().default(0)),
   chassis: z.string().optional(),
   color: z.string().optional(),
   notes: z.string().optional(),
 })
 
 export const productSchema = z.object({
-  sku: z.string().trim().min(1, 'Informe o código do produto.'),
-  name: z.string().trim().min(2, 'Informe o nome do produto.'),
+  sku: optionalText,
+  name: optionalText,
   description: z.string().optional(),
   categoryId: z.string().optional(),
   costPrice: moneyField.default('0'),
@@ -54,8 +60,8 @@ export const productSchema = z.object({
 })
 
 export const serviceSchema = z.object({
-  code: z.string().trim().min(1),
-  name: z.string().trim().min(2),
+  code: optionalText,
+  name: optionalText,
   description: z.string().optional(),
   categoryId: z.string().optional(),
   price: moneyField.default('0'),
@@ -72,10 +78,10 @@ export const stockMovementSchema = z.object({
 })
 
 export const workOrderSchema = z.object({
-  customerId: z.string().min(1, 'Selecione o cliente.'),
-  vehicleId: z.string().min(1, 'Selecione o aparelho.'),
-  mechanicId: z.string().optional(),
-  mileage: z.coerce.number().int().min(0).optional(),
+  customerId: optionalId,
+  vehicleId: optionalId,
+  mechanicId: optionalId,
+  mileage: z.preprocess(blankToUndefined, z.coerce.number().int().optional()),
   diagnosis: z.string().optional(),
   notes: z.string().optional(),
   entryDate: z.string().optional(),
@@ -102,8 +108,8 @@ export const workOrderPartItemSchema = z.object({
 })
 
 export const quoteSchema = z.object({
-  customerId: z.string().min(1),
-  vehicleId: z.string().optional(),
+  customerId: optionalId,
+  vehicleId: optionalId,
   notes: z.string().optional(),
   discount: moneyField.default('0'),
   surcharge: moneyField.default('0'),
@@ -113,26 +119,26 @@ export const quoteSchema = z.object({
     type: z.enum(['SERVICE', 'PART']),
     serviceId: z.string().optional(),
     productId: z.string().optional(),
-    description: z.string().min(1),
+    description: optionalText,
     quantity: moneyField.default('1'),
-    unitPrice: moneyField,
+    unitPrice: moneyField.default('0'),
     discount: moneyField.default('0'),
   })).default([]),
 })
 
 export const receivableSchema = z.object({
-  customerId: z.string().optional(),
-  workOrderId: z.string().optional(),
-  description: z.string().min(3),
+  customerId: optionalId,
+  workOrderId: optionalId,
+  description: optionalText,
   amount: moneyField,
-  dueDate: z.string().min(1, 'Informe o vencimento.'),
+  dueDate: optionalText,
 })
 
 export const payableSchema = z.object({
-  supplierId: z.string().optional(),
-  description: z.string().min(3),
+  supplierId: optionalId,
+  description: optionalText,
   amount: moneyField,
-  dueDate: z.string().min(1, 'Informe o vencimento.'),
+  dueDate: optionalText,
 })
 
 export const paymentSchema = z.object({
@@ -148,7 +154,7 @@ export const loginSchema = z.object({
 })
 
 export const settingsSchema = z.object({
-  name: z.string().min(2).optional(),
+  name: z.string().optional(),
   document: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),

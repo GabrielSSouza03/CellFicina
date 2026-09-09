@@ -20,6 +20,22 @@ export function ErrorBanner({ message }: { message: string }) {
   return <div className="banner error">{message}</div>
 }
 
+export function FlowSteps({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <div className="flow-steps">
+      {steps.map((label, index) => (
+        <span key={label} className="flow-step-wrap">
+          {index > 0 && <span className="flow-sep" />}
+          <span className={`flow-step${index < current ? ' done' : index === current ? ' active' : ''}`}>
+            <i>{index + 1}</i>
+            {label}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function Pagination({ page, pageCount, total, pageSize, onPage }: { page: number; pageCount: number; total: number; pageSize: number; onPage: (page: number) => void }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1
   const to = Math.min(page * pageSize, total)
