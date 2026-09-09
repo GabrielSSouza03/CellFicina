@@ -1,0 +1,461 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "debian-openssl-3.0.x", "linux-musl"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model User {
+  id           String      @id @default(cuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  active       Boolean     @default(true)
+  roleId       String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  role         Role        @relation(fields: [roleId], references: [id])
+  workOrders   WorkOrder[] @relation("Mechanic")
+  auditLogs    AuditLog[]
+  payments     Payment[]
+
+  @@index([roleId])
+  @@index([email])
+}
+
+model Workshop {
+  id        String             @id @default(cuid())
+  name      String
+  document  String?
+  phone     String?
+  email     String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  settings  WorkshopSettings?
+}
+
+model WorkshopSettings {
+  id                 String   @id @default(cuid())
+  workshopId         String   @unique
+  allowNegativeStock Boolean  @default(false)
+  lowStockThreshold  Int      @default(5)
+  quoteValidityDays  Int      @default(15)
+  currency           String   @default("BRL")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  workshop           Workshop @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id           String              @id @default(cuid())
+  name         String
+  document     String
+  documentType String
+  email        String?
+  phone        String
+  phone2       String?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  notes        String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  vehicles     Vehicle[]
+  workOrders   WorkOrder[]
+  quotes       Quote[]
+  receivables  AccountReceivable[]
+
+  @@index([name])
+  @@index([document])
+  @@index([phone])
+}
+
+model Vehicle {
+  id         String      @id @default(cuid())
+  customerId String
+  plate      String
+  brand      String
+  model      String
+  version    String?
+  year       Int?
+  mileage    Int         @default(0)
+  chassis    String?
+  color      String?
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  workOrders WorkOrder[]
+  quotes     Quote[]
+
+  @@index([customerId])
+  @@index([plate])
+}
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id             String           @id @default(cuid())
+  sku            String           @unique
+  name           String
+  description    String?
+  categoryId     String?
+  costPrice      Decimal          @default(0)
+  salePrice      Decimal          @default(0)
+  quantity       Int              @default(0)
+  minQuantity    Int              @default(0)
+  unit           String           @default("UN")
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  category       ProductCategory? @relation(fields: [categoryId], references: [id])
+  movements      StockMovement[]
+  workOrderParts WorkOrderPart[]
+  quoteItems     QuoteItem[]
+
+  @@index([name])
+  @@index([sku])
+  @@index([categoryId])
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String
+  type      String
+  quantity  Int
+  unitCost  Decimal?
+  reason    String?
+  reference String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+model ServiceCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  services  Service[]
+}
+
+model Service {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  description       String?
+  categoryId        String?
+  price             Decimal           @default(0)
+  durationMin       Int?
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  category          ServiceCategory?  @relation(fields: [categoryId], references: [id])
+  workOrderServices WorkOrderService[]
+  quoteItems        QuoteItem[]
+
+  @@index([name])
+  @@index([code])
+  @@index([categoryId])
+}
+
+model WorkOrder {
+  id            String              @id @default(cuid())
+  number        Int                 @unique
+  customerId    String
+  vehicleId     String
+  mechanicId    String?
+  status        String              @default("DRAFT")
+  mileage       Int?
+  diagnosis     String?
+  notes         String?
+  entryDate     DateTime            @default(now())
+  deliveryDate  DateTime?
+  discount      Decimal             @default(0)
+  surcharge     Decimal             @default(0)
+  servicesTotal Decimal             @default(0)
+  partsTotal    Decimal             @default(0)
+  subtotal      Decimal             @default(0)
+  total         Decimal             @default(0)
+  quoteId       String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  customer      Customer            @relation(fields: [customerId], references: [id])
+  vehicle       Vehicle             @relation(fields: [vehicleId], references: [id])
+  mechanic      User?               @relation("Mechanic", fields: [mechanicId], references: [id])
+  quote         Quote?              @relation(fields: [quoteId], references: [id])
+  items         WorkOrderItem[]
+  services      WorkOrderService[]
+  parts         WorkOrderPart[]
+  history       WorkOrderHistory[]
+  receivables   AccountReceivable[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([vehicleId])
+  @@index([entryDate])
+  @@index([quoteId])
+  @@index([mechanicId])
+}
+
+model WorkOrderItem {
+  id          String    @id @default(cuid())
+  workOrderId String
+  type        String
+  description String
+  quantity    Decimal
+  unitPrice   Decimal
+  discount    Decimal   @default(0)
+  total       Decimal
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+}
+
+model WorkOrderService {
+  id          String    @id @default(cuid())
+  workOrderId String
+  serviceId   String
+  description String
+  quantity    Decimal   @default(1)
+  unitPrice   Decimal
+  discount    Decimal   @default(0)
+  total       Decimal
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  service     Service   @relation(fields: [serviceId], references: [id])
+
+  @@index([workOrderId])
+  @@index([serviceId])
+}
+
+model WorkOrderPart {
+  id          String    @id @default(cuid())
+  workOrderId String
+  productId   String
+  description String
+  quantity    Int
+  unitPrice   Decimal
+  discount    Decimal   @default(0)
+  total       Decimal
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([workOrderId])
+  @@index([productId])
+}
+
+model WorkOrderHistory {
+  id          String    @id @default(cuid())
+  workOrderId String
+  fromStatus  String?
+  toStatus    String
+  note        String?
+  userId      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([createdAt])
+}
+
+model Quote {
+  id         String      @id @default(cuid())
+  number     Int         @unique
+  customerId String
+  vehicleId  String?
+  status     String      @default("DRAFT")
+  validUntil DateTime?
+  notes      String?
+  discount   Decimal     @default(0)
+  surcharge  Decimal     @default(0)
+  subtotal   Decimal     @default(0)
+  total      Decimal     @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  vehicle    Vehicle?    @relation(fields: [vehicleId], references: [id])
+  items      QuoteItem[]
+  workOrders WorkOrder[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([vehicleId])
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  type        String
+  serviceId   String?
+  productId   String?
+  description String
+  quantity    Decimal
+  unitPrice   Decimal
+  discount    Decimal  @default(0)
+  total       Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service     Service? @relation(fields: [serviceId], references: [id])
+  product     Product? @relation(fields: [productId], references: [id])
+
+  @@index([quoteId])
+  @@index([serviceId])
+  @@index([productId])
+}
+
+model PaymentMethod {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  payments  Payment[]
+}
+
+model Supplier {
+  id        String           @id @default(cuid())
+  name      String
+  document  String?
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  payables  AccountPayable[]
+
+  @@index([name])
+}
+
+model AccountReceivable {
+  id          String    @id @default(cuid())
+  customerId  String?
+  workOrderId String?
+  description String
+  amount      Decimal
+  paidAmount  Decimal   @default(0)
+  dueDate     DateTime
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+  payments    Payment[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([customerId])
+  @@index([workOrderId])
+}
+
+model AccountPayable {
+  id          String    @id @default(cuid())
+  supplierId  String?
+  description String
+  amount      Decimal
+  paidAmount  Decimal   @default(0)
+  dueDate     DateTime
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  payments    Payment[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([supplierId])
+}
+
+model Payment {
+  id                  String             @id @default(cuid())
+  amount              Decimal
+  paidAt              DateTime           @default(now())
+  paymentMethodId     String?
+  accountReceivableId String?
+  accountPayableId    String?
+  userId              String?
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  paymentMethod       PaymentMethod?     @relation(fields: [paymentMethodId], references: [id])
+  accountReceivable   AccountReceivable? @relation(fields: [accountReceivableId], references: [id])
+  accountPayable      AccountPayable?    @relation(fields: [accountPayableId], references: [id])
+  user                User?              @relation(fields: [userId], references: [id])
+
+  @@index([accountReceivableId])
+  @@index([accountPayableId])
+  @@index([paidAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ip        String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([userId])
+}
