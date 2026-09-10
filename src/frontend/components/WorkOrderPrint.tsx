@@ -241,40 +241,40 @@ export function WorkOrderPrintDocument({
 }
 
 const PRINT_PAGE_CSS = `
-@page { size: A4 portrait; margin: 7mm; }
+@page { size: A4 portrait; margin: 4mm; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; }
 .os-print-sheet { width: 100%; }
-.os-print-copy { position: relative; height: 134mm; overflow: hidden; border: 1px solid #222; padding: 5mm 6mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.os-print-copy.is-second:before { content: '2ª VIA'; position: absolute; inset: 38% auto auto 18%; font-size: 42px; font-weight: 800; letter-spacing: 4px; color: #000; opacity: .08; transform: rotate(-18deg); pointer-events: none; }
-.os-print-cut { height: 8mm; display: flex; align-items: center; justify-content: center; color: #777; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; border-top: 1px dashed #999; border-bottom: 1px dashed #999; margin: 2mm 0; }
-.os-print-header { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 4mm; margin-bottom: 3mm; }
-.os-print-logo { display: block; height: 16mm; width: auto; margin-bottom: 2mm; }
-.os-print-header strong { display: block; font-size: 16px; letter-spacing: -.3px; }
-.os-print-header small { display: block; font-size: 9px; color: #333; margin-top: 2px; }
+.os-print-copy { position: relative; display: flex; flex-direction: column; height: 140mm; overflow: hidden; border: 1px solid #222; padding: 3.5mm 4mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.os-print-copy.is-second:before { content: '2ª VIA'; position: absolute; inset: 38% auto auto 18%; font-size: 58px; font-weight: 800; letter-spacing: 4px; color: #000; opacity: .08; transform: rotate(-18deg); pointer-events: none; }
+.os-print-cut { height: 7mm; display: flex; align-items: center; justify-content: center; color: #777; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; border-top: 1px dashed #999; border-bottom: 1px dashed #999; margin: 1mm 0; }
+.os-print-header { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 3.5mm; margin-bottom: 3mm; }
+.os-print-logo { display: block; height: 20mm; width: auto; margin-bottom: 2mm; }
+.os-print-header strong { display: block; font-size: 22px; letter-spacing: -.3px; }
+.os-print-header small { display: block; font-size: 13px; color: #333; margin-top: 2px; }
 .os-print-os { text-align: right; }
-.os-print-os em { display: block; font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .8px; }
-.os-print-os b { display: block; font-size: 18px; }
-.os-print-os span { display: inline-block; margin-top: 2px; border: 1px solid #111; padding: 1px 6px; font-size: 9px; font-weight: 700; }
-.os-print-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 3mm; }
-.os-print-meta span, .os-print-grid h3, .os-print-block h3 { display: block; font-size: 8px; text-transform: uppercase; letter-spacing: .6px; color: #555; margin: 0 0 2px; }
-.os-print-meta strong { font-size: 10px; }
+.os-print-os em { display: block; font-style: normal; font-size: 14px; font-weight: 800; letter-spacing: .8px; }
+.os-print-os b { display: block; font-size: 26px; }
+.os-print-os span { display: inline-block; margin-top: 2px; border: 1px solid #111; padding: 2px 8px; font-size: 13px; font-weight: 700; }
+.os-print-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 3mm; }
+.os-print-meta span, .os-print-grid h3, .os-print-block h3 { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: #555; margin: 0 0 2px; }
+.os-print-meta strong { font-size: 15px; }
 .os-print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin-bottom: 3mm; }
-.os-print-grid p, .os-print-block p, .os-print-terms p { margin: 0 0 1px; font-size: 10px; line-height: 1.35; }
+.os-print-grid p, .os-print-block p, .os-print-terms p { margin: 0 0 2px; font-size: 14px; line-height: 1.4; }
 .os-print-block { margin-bottom: 3mm; }
 .os-print-table { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
-.os-print-table th, .os-print-table td { border-bottom: 1px solid #ccc; padding: 2px 4px; font-size: 9px; text-align: left; }
-.os-print-table th { text-transform: uppercase; font-size: 8px; letter-spacing: .4px; }
+.os-print-table th, .os-print-table td { border-bottom: 1px solid #ccc; padding: 3px 5px; font-size: 13px; text-align: left; }
+.os-print-table th { text-transform: uppercase; font-size: 11px; letter-spacing: .4px; }
 .os-print-table th:nth-child(n+3), .os-print-table td:nth-child(n+3) { text-align: right; }
-.os-print-totals { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 3mm; font-size: 10px; }
+.os-print-totals { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 3mm; font-size: 14px; }
 .os-print-totals div { display: flex; gap: 8px; }
-.os-print-grand { border-top: 1px solid #111; padding-top: 2px; font-size: 12px; }
+.os-print-grand { border-top: 1px solid #111; padding-top: 2px; font-size: 17px; }
 .os-print-terms { color: #333; }
-.os-print-terms ul { margin: 1mm 0 0; padding-left: 3.5mm; font-size: 9px; line-height: 1.35; font-style: italic; }
+.os-print-terms ul { margin: 1.5mm 0 0; padding-left: 4mm; font-size: 12px; line-height: 1.4; font-style: italic; }
 .os-print-terms li { margin: 0; }
-.os-print-signs { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 4mm; }
-.os-print-signs span { display: block; border-bottom: 1px solid #111; height: 10mm; }
-.os-print-signs small { display: block; text-align: center; font-size: 8px; margin-top: 2px; }
+.os-print-signs { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: auto; padding-top: 4mm; }
+.os-print-signs span { display: block; border-bottom: 1px solid #111; height: 11mm; }
+.os-print-signs small { display: block; text-align: center; font-size: 11px; margin-top: 2px; }
 `
 
 async function toDataUrl(url: string) {
