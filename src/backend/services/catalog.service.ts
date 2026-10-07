@@ -1,16 +1,40 @@
 import { getPrisma } from '../database/client'
-import { paginationQuery, productSchema, serviceSchema, stockMovementSchema } from '../validators'
-import { AppError, NotFoundError } from '../utils/errors'
+import { categorySchema, paginationQuery, productListQuery, productSchema, productStatusSchema, serviceSchema } from '../validators'
+import { ConflictError, NotFoundError } from '../utils/errors'
 import { paginated, serializeProduct, serializeService } from '../utils/serialize'
-import { money } from '../utils/money'
+import { stockService } from './stock.service'
+
+export { stockService } from './stock.service'
+export { canDecrementStock } from '../../shared/stock'
 
 export const catalogService = {
+  async listCategories() {
+    return getPrisma().productCategory.findMany({ orderBy: { name: 'asc' } })
+  },
+  async createCategory(input: unknown) {
+    const data = categorySchema.parse(input)
+    try {
+      return await getPrisma().productCategory.create({ data: { name: data.name } })
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') throw new ConflictError('Categoria já cadastrada.')
+      throw error
+    }
+  },
   async listProducts(query: unknown) {
-    const params = paginationQuery.parse(query)
+    const params = productListQuery.parse(query)
     const prisma = getPrisma()
-    const where = params.search
-      ? { OR: [{ name: { contains: params.search } }, { sku: { contains: params.search } }] }
-      : {}
+    const statusIds = await stockService.matchingProductIds(params.stockStatus)
+    if (statusIds && statusIds.length === 0) {
+      return paginated([], 0, params.page, params.pageSize)
+    }
+    const where = {
+      ...(statusIds ? { id: { in: statusIds } } : {}),
+      ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+      ...(params.active === 'true' ? { active: true } : params.active === 'false' ? { active: false } : {}),
+      ...(params.search
+        ? { OR: [{ name: { contains: params.search } }, { sku: { contains: params.search } }] }
+        : {}),
+    }
     const [rows, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -30,46 +54,81 @@ export const catalogService = {
   },
   async createProduct(input: unknown) {
     const data = productSchema.parse(input)
-    const created = await getPrisma().product.create({
-      data: {
-        sku: data.sku,
-        name: data.name,
-        description: data.description,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        quantity: data.quantity,
-        minQuantity: data.minQuantity,
-        unit: data.unit,
-        active: data.active,
-        category: data.categoryId ? { connect: { id: data.categoryId } } : undefined,
-      },
-      include: { category: true },
-    })
-    return serializeProduct(created)
+    await this.assertCategory(data.categoryId)
+    try {
+      const created = await getPrisma().product.create({
+        data: {
+          sku: data.sku,
+          name: data.name,
+          description: data.description ?? null,
+          costPrice: data.costPrice,
+          salePrice: data.salePrice,
+          minQuantity: data.minQuantity,
+          maxQuantity: data.maxQuantity,
+          unit: data.unit,
+          active: data.active,
+          category: data.categoryId ? { connect: { id: data.categoryId } } : undefined,
+        },
+        include: { category: true },
+      })
+      return serializeProduct(created)
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') throw new ConflictError('Já existe um produto com este código.')
+      throw error
+    }
   },
   async updateProduct(id: string, input: unknown) {
     await this.getProduct(id)
     const data = productSchema.parse(input)
+    await this.assertCategory(data.categoryId)
+    try {
+      const updated = await getPrisma().product.update({
+        where: { id },
+        data: {
+          sku: data.sku,
+          name: data.name,
+          description: data.description ?? null,
+          costPrice: data.costPrice,
+          salePrice: data.salePrice,
+          minQuantity: data.minQuantity,
+          maxQuantity: data.maxQuantity,
+          unit: data.unit,
+          active: data.active,
+          category: data.categoryId ? { connect: { id: data.categoryId } } : { disconnect: true },
+        },
+        include: { category: true },
+      })
+      return serializeProduct(updated)
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') throw new ConflictError('Já existe um produto com este código.')
+      throw error
+    }
+  },
+  async setProductStatus(id: string, input: unknown) {
+    await this.getProduct(id)
+    const data = productStatusSchema.parse(input)
     const updated = await getPrisma().product.update({
       where: { id },
-      data: {
-        sku: data.sku,
-        name: data.name,
-        description: data.description,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
-        minQuantity: data.minQuantity,
-        unit: data.unit,
-        active: data.active,
-        category: data.categoryId ? { connect: { id: data.categoryId } } : { disconnect: true },
-      },
+      data: { active: data.active },
       include: { category: true },
     })
     return serializeProduct(updated)
   },
   async removeProduct(id: string) {
     await this.getProduct(id)
-    await getPrisma().product.delete({ where: { id } })
+    try {
+      await getPrisma().product.delete({ where: { id } })
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2003') {
+        throw new ConflictError('Este produto possui movimentações ou vínculos e não pode ser excluído. Inative-o.')
+      }
+      throw error
+    }
+  },
+  async assertCategory(categoryId?: string) {
+    if (!categoryId) return
+    const category = await getPrisma().productCategory.findUnique({ where: { id: categoryId } })
+    if (!category) throw new NotFoundError('Categoria não encontrada.')
   },
   async listServices(query: unknown) {
     const params = paginationQuery.parse(query)
@@ -126,92 +185,3 @@ export const catalogService = {
   },
 }
 
-export function canDecrementStock(current: number, quantity: number, allowNegative: boolean) {
-  return allowNegative || current >= quantity
-}
-
-export const stockService = {
-  async settings() {
-    const settings = await getPrisma().workshopSettings.findFirst()
-    return settings
-  },
-  async assertStock(productId: string, quantity: number) {
-    const product = await getPrisma().product.findUnique({ where: { id: productId } })
-    if (!product) throw new NotFoundError('Produto não encontrado.')
-    const settings = await this.settings()
-    if (!canDecrementStock(product.quantity, quantity, Boolean(settings?.allowNegativeStock))) {
-      throw new AppError(`Estoque insuficiente para ${product.name}. Disponível: ${product.quantity}.`, 400, 'STOCK')
-    }
-    return product
-  },
-  async entry(input: unknown) {
-    const data = stockMovementSchema.parse(input)
-    const prisma = getPrisma()
-    return prisma.$transaction(async (tx) => {
-      const product = await tx.product.update({
-        where: { id: data.productId },
-        data: { quantity: { increment: data.quantity } },
-      })
-      const movement = await tx.stockMovement.create({
-        data: {
-          productId: data.productId,
-          type: 'ENTRY',
-          quantity: data.quantity,
-          unitCost: data.unitCost,
-          reason: data.reason || 'Entrada de estoque',
-          reference: data.reference,
-        },
-        include: { product: true },
-      })
-      return { movement, product }
-    })
-  },
-  async exit(input: unknown) {
-    const data = stockMovementSchema.parse(input)
-    await this.assertStock(data.productId, data.quantity)
-    const prisma = getPrisma()
-    return prisma.$transaction(async (tx) => {
-      const product = await tx.product.update({
-        where: { id: data.productId },
-        data: { quantity: { decrement: data.quantity } },
-      })
-      const movement = await tx.stockMovement.create({
-        data: {
-          productId: data.productId,
-          type: 'EXIT',
-          quantity: data.quantity,
-          unitCost: data.unitCost,
-          reason: data.reason || 'Saída de estoque',
-          reference: data.reference,
-        },
-        include: { product: true },
-      })
-      return { movement, product }
-    })
-  },
-  async movements(query: unknown) {
-    const params = paginationQuery.parse(query)
-    const prisma = getPrisma()
-    const [rows, total] = await Promise.all([
-      prisma.stockMovement.findMany({
-        include: { product: true },
-        orderBy: { createdAt: 'desc' },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-      }),
-      prisma.stockMovement.count(),
-    ])
-    return paginated(rows, total, params.page, params.pageSize)
-  },
-  async lowStock() {
-    const settings = await this.settings()
-    const threshold = settings?.lowStockThreshold ?? 5
-    return getPrisma().product.findMany({
-      where: { quantity: { lte: threshold }, active: true },
-      include: { category: true },
-      orderBy: { quantity: 'asc' },
-    }).then((rows) => rows.map(serializeProduct))
-  },
-}
-
-export { money }

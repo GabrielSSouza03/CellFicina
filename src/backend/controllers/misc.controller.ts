@@ -23,6 +23,15 @@ export const productController = {
     await catalogService.removeProduct(param(req, 'id'))
     res.status(204).end()
   }),
+  categories: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await catalogService.listCategories())
+  }),
+  createCategory: asyncHandler(async (req: Request, res: Response) => {
+    res.status(201).json(await catalogService.createCategory(req.body))
+  }),
+  status: asyncHandler(async (req: Request, res: Response) => {
+    res.json(await catalogService.setProductStatus(param(req, 'id'), req.body))
+  }),
 }
 
 export const serviceCatalogController = {
@@ -43,13 +52,28 @@ export const serviceCatalogController = {
 
 export const stockController = {
   entry: asyncHandler(async (req: Request, res: Response) => {
-    res.status(201).json(await stockService.entry(req.body))
+    res.status(201).json(await stockService.entry(req.body, req.user?.id))
   }),
   exit: asyncHandler(async (req: Request, res: Response) => {
-    res.status(201).json(await stockService.exit(req.body))
+    res.status(201).json(await stockService.exit(req.body, req.user?.id))
   }),
   movements: asyncHandler(async (req: Request, res: Response) => {
     res.json(await stockService.movements(req.query))
+  }),
+  productMovements: asyncHandler(async (req: Request, res: Response) => {
+    res.json(await stockService.movements({ ...req.query, productId: param(req, 'productId') }))
+  }),
+  dashboard: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await stockService.dashboard())
+  }),
+  productOptions: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await stockService.listProductOptions())
+  }),
+  suppliers: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await stockService.listSuppliers())
+  }),
+  users: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await stockService.listUsers())
   }),
 }
 

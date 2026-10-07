@@ -95,16 +95,9 @@ export async function seedDatabase() {
 
   const workshop = await ensureWorkshopProfile()
 
-  await prisma.paymentMethod.createMany({
-    data: [
-      { name: 'Dinheiro' },
-      { name: 'PIX' },
-      { name: 'Cartão de crédito' },
-      { name: 'Cartão de débito' },
-      { name: 'Boleto' },
-    ],
-    skipDuplicates: true,
-  })
+  for (const name of ['Dinheiro', 'PIX', 'Cartão de crédito', 'Cartão de débito', 'Boleto']) {
+    await prisma.paymentMethod.upsert({ where: { name }, update: {}, create: { name } })
+  }
 
   logger.info('database', 'Seed completed', { workshop: workshop.name, admin: admin.email })
 }

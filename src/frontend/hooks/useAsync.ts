@@ -77,6 +77,13 @@ export const statusStyles: Record<string, string> = {
   SENT: 'status-blue',
   REJECTED: 'status-red',
   EXPIRED: 'status-slate',
+  Normal: 'status-green',
+  'Estoque baixo': 'status-amber',
+  'Sem estoque': 'status-red',
+  Entrada: 'status-green',
+  Saída: 'status-red',
+  Ativo: 'status-green',
+  Inativo: 'status-slate',
 }
 
 export const financeLabels: Record<string, string> = {

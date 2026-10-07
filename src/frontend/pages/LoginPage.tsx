@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BrandLogo } from '../components/BrandLogo'
+import { PhoneAccess } from '../components/PhoneAccess'
 import { useAuth } from '../context/AuthContext'
 import { ApiError } from '../services/api'
 
@@ -32,5 +33,6 @@ export function LoginPage() {
       <button className="btn primary wide" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
       <p className="login-hint">Usuário inicial: admin@shoficina.local · Admin@123</p>
     </form>
+    <PhoneAccess />
   </div>
 }

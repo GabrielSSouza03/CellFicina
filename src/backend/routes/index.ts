@@ -43,10 +43,13 @@ router.post('/work-orders/:id/parts', requireAuth, requirePermission('work-order
 router.delete('/work-orders/:id/services/:itemId', requireAuth, requirePermission('work-orders.write'), workOrderController.removeService)
 router.delete('/work-orders/:id/parts/:itemId', requireAuth, requirePermission('work-orders.write'), workOrderController.removePart)
 
+router.get('/products/categories', requireAuth, requirePermission('products.read'), productController.categories)
+router.post('/products/categories', requireAuth, requirePermission('products.write'), productController.createCategory)
 router.get('/products', requireAuth, requirePermission('products.read'), productController.list)
 router.get('/products/:id', requireAuth, requirePermission('products.read'), productController.get)
 router.post('/products', requireAuth, requirePermission('products.write'), productController.create)
 router.put('/products/:id', requireAuth, requirePermission('products.write'), productController.update)
+router.patch('/products/:id/status', requireAuth, requirePermission('products.write'), productController.status)
 router.delete('/products/:id', requireAuth, requirePermission('products.delete'), productController.remove)
 
 router.get('/services', requireAuth, requirePermission('products.read'), serviceCatalogController.list)
@@ -54,9 +57,14 @@ router.post('/services', requireAuth, requirePermission('products.write'), servi
 router.put('/services/:id', requireAuth, requirePermission('products.write'), serviceCatalogController.update)
 router.delete('/services/:id', requireAuth, requirePermission('products.delete'), serviceCatalogController.remove)
 
+router.get('/stock/dashboard', requireAuth, requirePermission('stock.read'), stockController.dashboard)
+router.get('/stock/movements', requireAuth, requirePermission('stock.read'), stockController.movements)
+router.get('/stock/products/:productId/movements', requireAuth, requirePermission('stock.read'), stockController.productMovements)
+router.get('/stock/product-options', requireAuth, requirePermission('stock.read'), stockController.productOptions)
+router.get('/stock/suppliers', requireAuth, requirePermission('stock.read'), stockController.suppliers)
+router.get('/stock/users', requireAuth, requirePermission('stock.read'), stockController.users)
 router.post('/stock/entries', requireAuth, requirePermission('stock.write'), stockController.entry)
 router.post('/stock/exits', requireAuth, requirePermission('stock.write'), stockController.exit)
-router.get('/stock/movements', requireAuth, requirePermission('stock.read'), stockController.movements)
 
 router.get('/quotes', requireAuth, requirePermission('quotes.read'), quoteController.list)
 router.get('/quotes/:id', requireAuth, requirePermission('quotes.read'), quoteController.get)

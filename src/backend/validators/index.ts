@@ -46,17 +46,47 @@ export const vehicleSchema = z.object({
   notes: z.string().optional(),
 })
 
+const moneyPattern = /^\d+(\.\d+)?$/
+
+function normalizeMoney(value: unknown) {
+  if (value === '' || value === undefined || value === null) return undefined
+  return String(value).trim().replace(/\s/g, '').replace(',', '.')
+}
+
+const requiredMoney = z.preprocess(
+  (value) => normalizeMoney(value) ?? '0',
+  z.string().regex(moneyPattern, 'Informe um valor monetário válido, maior ou igual a zero.'),
+)
+
+const optionalMoney = z.preprocess(
+  normalizeMoney,
+  z.string().regex(moneyPattern, 'Informe um valor monetário válido, maior ou igual a zero.').optional(),
+)
+
+const requiredName = (message: string) => z.string({ required_error: message }).trim().min(1, message)
+
+const activeField = z.preprocess((value) => {
+  if (value === undefined || value === null || value === '') return true
+  if (value === true || value === 'true' || value === 'on' || value === 1 || value === '1') return true
+  if (value === false || value === 'false' || value === 'off' || value === 0 || value === '0') return false
+  return value
+}, z.boolean())
+
 export const productSchema = z.object({
-  sku: optionalText,
-  name: optionalText,
-  description: z.string().optional(),
-  categoryId: z.string().optional(),
-  costPrice: moneyField.default('0'),
-  salePrice: moneyField.default('0'),
-  quantity: z.coerce.number().int().min(0).default(0),
-  minQuantity: z.coerce.number().int().min(0).default(0),
-  unit: z.string().default('UN'),
-  active: z.boolean().default(true),
+  sku: requiredName('Informe o código do produto.'),
+  name: requiredName('Informe o nome do produto.'),
+  description: z.string().optional().transform((value) => value?.trim() || undefined),
+  categoryId: optionalId,
+  costPrice: requiredMoney,
+  salePrice: requiredMoney,
+  minQuantity: z.coerce.number().int().min(0, 'O estoque mínimo não pode ser negativo.').default(0),
+  maxQuantity: z.coerce.number().int().min(0, 'O estoque máximo não pode ser negativo.').default(0),
+  unit: z.string().trim().min(1, 'Informe a unidade de medida.').default('UN'),
+  active: activeField,
+}).superRefine((data, ctx) => {
+  if (data.maxQuantity > 0 && data.maxQuantity < data.minQuantity) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'O estoque máximo deve ser maior ou igual ao mínimo.', path: ['maxQuantity'] })
+  }
 })
 
 export const serviceSchema = z.object({
@@ -69,12 +99,60 @@ export const serviceSchema = z.object({
   active: z.boolean().default(true),
 })
 
-export const stockMovementSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.coerce.number().int().positive('Informe uma quantidade válida.'),
-  unitCost: moneyField.optional(),
+const movementQuantity = z.coerce.number({ invalid_type_error: 'Informe uma quantidade válida.' })
+  .int('A quantidade deve ser um número inteiro.')
+  .positive('A quantidade deve ser maior que zero.')
+
+const optionalDate = z.string().optional().refine((value) => !value || !Number.isNaN(Date.parse(value)), 'Data inválida.')
+
+export const stockEntrySchema = z.object({
+  productId: z.string().trim().min(1, 'Selecione o produto.'),
+  quantity: movementQuantity,
+  unitCost: optionalMoney,
+  occurredAt: optionalDate,
+  supplierId: optionalId,
+  supplierName: z.string().trim().max(120).optional(),
+  documentNumber: z.string().trim().max(60).optional(),
+  description: z.string().trim().max(500).optional(),
+  originType: z.enum(['MANUAL', 'COMPRA', 'AJUSTE', 'DEVOLUCAO']).default('MANUAL'),
+  originId: z.string().trim().optional(),
+  reason: z.string().trim().max(80).optional(),
+})
+
+export const stockExitSchema = z.object({
+  productId: z.string().trim().min(1, 'Selecione o produto.'),
+  quantity: movementQuantity,
+  reason: z.enum(['VENDA', 'CONSUMO', 'PERDA', 'AVARIA', 'DEVOLUCAO', 'AJUSTE', 'OUTROS'], {
+    errorMap: () => ({ message: 'Selecione o motivo da saída.' }),
+  }),
+  occurredAt: optionalDate,
+  description: z.string().trim().max(500).optional(),
+  originType: z.enum(['MANUAL', 'COMPRA', 'ORDEM_SERVICO', 'VENDA', 'AJUSTE', 'DEVOLUCAO']).optional(),
+  originId: z.string().trim().optional(),
+})
+
+export const stockMovementQuery = paginationQuery.extend({
+  productId: z.string().optional(),
+  type: z.string().optional(),
   reason: z.string().optional(),
-  reference: z.string().optional(),
+  originType: z.string().optional(),
+  userId: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+})
+
+export const productListQuery = paginationQuery.extend({
+  categoryId: z.string().optional(),
+  stockStatus: z.string().optional(),
+  active: z.string().optional(),
+})
+
+export const categorySchema = z.object({
+  name: requiredName('Informe o nome da categoria.'),
+})
+
+export const productStatusSchema = z.object({
+  active: z.boolean({ required_error: 'Informe se o produto está ativo.' }),
 })
 
 export const workOrderSchema = z.object({

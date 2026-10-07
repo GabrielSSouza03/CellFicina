@@ -17,7 +17,7 @@ export const workOrderController = {
     res.json(await workOrderService.update(param(req, 'id'), req.body))
   }),
   remove: asyncHandler(async (req: Request, res: Response) => {
-    await workOrderService.remove(param(req, 'id'))
+    await workOrderService.remove(param(req, 'id'), req.user?.id)
     res.status(204).end()
   }),
   status: asyncHandler(async (req: Request, res: Response) => {
@@ -27,12 +27,12 @@ export const workOrderController = {
     res.json(await workOrderService.addService(param(req, 'id'), req.body))
   }),
   addPart: asyncHandler(async (req: Request, res: Response) => {
-    res.json(await workOrderService.addPart(param(req, 'id'), req.body))
+    res.json(await workOrderService.addPart(param(req, 'id'), req.body, req.user?.id))
   }),
   removeService: asyncHandler(async (req: Request, res: Response) => {
     res.json(await workOrderService.removeService(param(req, 'id'), param(req, 'itemId')))
   }),
   removePart: asyncHandler(async (req: Request, res: Response) => {
-    res.json(await workOrderService.removePart(param(req, 'id'), param(req, 'itemId')))
+    res.json(await workOrderService.removePart(param(req, 'id'), param(req, 'itemId'), req.user?.id))
   }),
 }

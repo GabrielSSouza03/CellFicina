@@ -2,7 +2,6 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import Module from 'node:module'
-import { pathToFileURL } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { loadEnv } from '../backend/database/env'
@@ -98,6 +97,8 @@ async function startBackend() {
   process.env.APP_USER_DATA = dataDir
   process.env.DATABASE_URL = `file:${dbPath.replace(/\\/g, '/')}`
   process.env.API_PORT = process.env.API_PORT || '3456'
+  process.env.HOST = '0.0.0.0'
+  process.env.RENDERER_DIR = path.join(__dirname, '../dist/renderer')
   process.env.PRISMA_RESOURCES = resolvePrismaResources()
   process.env.NODE_ENV = isDev ? 'development' : 'production'
 
@@ -113,7 +114,7 @@ async function startBackend() {
   getPrisma()
   await runMigrations()
   await seedIfEmpty()
-  return startServer(API_PORT)
+  return startServer(API_PORT, '0.0.0.0')
 }
 
 function createWindow() {
@@ -139,8 +140,7 @@ function createWindow() {
   if (isDev) {
     void window.loadURL('http://127.0.0.1:5173')
   } else {
-    const index = path.join(__dirname, '../dist/renderer/index.html')
-    void window.loadURL(pathToFileURL(index).toString())
+    void window.loadURL(`http://127.0.0.1:${process.env.API_PORT || 3456}/`)
   }
   window.once('ready-to-show', () => window.show())
 }

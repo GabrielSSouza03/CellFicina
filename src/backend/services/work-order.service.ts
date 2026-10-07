@@ -9,7 +9,7 @@ import { AppError, NotFoundError } from '../utils/errors'
 import { lineTotal, money, orderTotals } from '../utils/money'
 import { paginated, serializeWorkOrder } from '../utils/serialize'
 import { assertWorkOrderTransition, type WorkOrderStatus } from './status-rules'
-import { stockService } from './catalog.service'
+import { stockService } from './stock.service'
 import { logger } from '../utils/logger'
 
 const includeOrder = {
@@ -151,16 +151,30 @@ export const workOrderService = {
     } catch (error) {
       throw new AppError((error as Error).message)
     }
-    if (toStatus === 'CANCELLED') {
-      for (const part of current.parts) {
-        await stockService.entry({
-          productId: part.productId,
-          quantity: part.quantity,
-          reason: `Estorno OS ${current.number}`,
-          reference: current.id,
-        })
+    await getPrisma().$transaction(async (tx) => {
+      if (toStatus === 'CANCELLED') {
+        for (const part of current.parts) {
+          await stockService.apply({
+            productId: part.productId,
+            direction: 'ENTRADA',
+            quantity: part.quantity,
+            reason: 'DEVOLUCAO',
+            originType: 'ORDEM_SERVICO',
+            originId: current.id,
+            description: `Estorno OS ${current.number}`,
+            userId,
+            updateCost: false,
+          }, tx)
+        }
       }
-    }
+      await tx.workOrder.update({
+        where: { id },
+        data: {
+          status: toStatus,
+          history: { create: { fromStatus: current.status, toStatus, note, userId } },
+        },
+      })
+    })
     if (toStatus === 'COMPLETED' || toStatus === 'DELIVERED') {
       const exists = await getPrisma().accountReceivable.findFirst({ where: { workOrderId: id } })
       if (!exists && money(current.total).greaterThan(0)) {
@@ -176,13 +190,6 @@ export const workOrderService = {
         })
       }
     }
-    await getPrisma().workOrder.update({
-      where: { id },
-      data: {
-        status: toStatus,
-        history: { create: { fromStatus: current.status, toStatus, note, userId } },
-      },
-    })
     logger.info('work-order', `OS ${current.number} ${current.status} → ${toStatus}`)
     return this.get(id)
   },
@@ -207,11 +214,15 @@ export const workOrderService = {
     })
     return serializeWorkOrder(await recalc(id))
   },
-  async addPart(id: string, input: unknown) {
+  async addPart(id: string, input: unknown, userId?: string) {
     const order = await getPrisma().workOrder.findUnique({ where: { id } })
     if (!order) throw new NotFoundError('Ordem de serviço não encontrada.')
+    if (order.status === 'CANCELLED' || order.status === 'DELIVERED') {
+      throw new AppError('Esta ordem não pode mais receber peças.')
+    }
     const data = workOrderPartItemSchema.parse(input)
-    const product = await stockService.assertStock(data.productId, data.quantity)
+    const product = await getPrisma().product.findUnique({ where: { id: data.productId } })
+    if (!product) throw new NotFoundError('Produto não encontrado.')
     const unitPrice = money(data.unitPrice || product.salePrice)
     const total = lineTotal(data.quantity, unitPrice, data.discount)
     await getPrisma().$transaction(async (tx) => {
@@ -226,16 +237,18 @@ export const workOrderService = {
           total: total.toFixed(2),
         },
       })
-      await tx.product.update({ where: { id: product.id }, data: { quantity: { decrement: data.quantity } } })
-      await tx.stockMovement.create({
-        data: {
-          productId: product.id,
-          type: 'EXIT',
-          quantity: data.quantity,
-          reason: `Saída para OS ${order.number}`,
-          reference: id,
-        },
-      })
+      await stockService.apply({
+        productId: product.id,
+        direction: 'SAIDA',
+        quantity: data.quantity,
+        unitCost: String(product.costPrice),
+        reason: 'CONSUMO',
+        originType: 'ORDEM_SERVICO',
+        originId: id,
+        description: `Saída para OS ${order.number}`,
+        userId,
+        updateCost: false,
+      }, tx)
     })
     return serializeWorkOrder(await recalc(id))
   },
@@ -243,29 +256,43 @@ export const workOrderService = {
     await getPrisma().workOrderService.delete({ where: { id: itemId } })
     return serializeWorkOrder(await recalc(orderId))
   },
-  async removePart(orderId: string, itemId: string) {
+  async removePart(orderId: string, itemId: string, userId?: string) {
     const part = await getPrisma().workOrderPart.findUnique({ where: { id: itemId } })
     if (!part) throw new NotFoundError('Peça não encontrada.')
-    await stockService.entry({
-      productId: part.productId,
-      quantity: part.quantity,
-      reason: 'Estorno de peça da OS',
-      reference: orderId,
+    await getPrisma().$transaction(async (tx) => {
+      await stockService.apply({
+        productId: part.productId,
+        direction: 'ENTRADA',
+        quantity: part.quantity,
+        reason: 'DEVOLUCAO',
+        originType: 'ORDEM_SERVICO',
+        originId: orderId,
+        description: 'Estorno de peça da OS',
+        userId,
+        updateCost: false,
+      }, tx)
+      await tx.workOrderPart.delete({ where: { id: itemId } })
     })
-    await getPrisma().workOrderPart.delete({ where: { id: itemId } })
     return serializeWorkOrder(await recalc(orderId))
   },
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     const current = await getPrisma().workOrder.findUnique({ where: { id }, include: { parts: true } })
     if (!current) throw new NotFoundError('Ordem de serviço não encontrada.')
-    for (const part of current.parts) {
-      await stockService.entry({
-        productId: part.productId,
-        quantity: part.quantity,
-        reason: `Estorno exclusão OS ${current.number}`,
-        reference: id,
-      })
-    }
-    await getPrisma().workOrder.delete({ where: { id } })
+    await getPrisma().$transaction(async (tx) => {
+      for (const part of current.parts) {
+        await stockService.apply({
+          productId: part.productId,
+          direction: 'ENTRADA',
+          quantity: part.quantity,
+          reason: 'DEVOLUCAO',
+          originType: 'ORDEM_SERVICO',
+          originId: id,
+          description: `Estorno exclusão OS ${current.number}`,
+          userId,
+          updateCost: false,
+        }, tx)
+      }
+      await tx.workOrder.delete({ where: { id } })
+    })
   },
 }

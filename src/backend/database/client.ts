@@ -12,6 +12,8 @@ export function getPrisma(): PrismaClient {
       datasources: { db: { url } },
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     })
+    void prisma.$queryRawUnsafe('PRAGMA journal_mode = WAL')
+    void prisma.$queryRawUnsafe('PRAGMA busy_timeout = 5000')
     logger.info('database', 'Prisma client initialized', { url: url.replace(/.*\//, 'file:…/') })
   }
   return prisma

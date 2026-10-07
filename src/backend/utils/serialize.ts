@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { getPrisma } from '../database/client'
-import { moneyString } from '../utils/money'
+import { money, moneyString } from '../utils/money'
+import { MOVEMENT_TYPE_LABELS, normalizeMovementType, ORIGIN_LABELS, REASON_LABELS, STOCK_STATUS_LABELS, stockStatusOf } from '../../shared/stock'
 import { formatDocument, formatPhone, formatPlate } from '../validators/brazil'
 import { WORK_ORDER_STATUS_LABELS, type WorkOrderStatus } from '../services/status-rules'
 
@@ -68,11 +69,37 @@ export function serializeWorkOrder(order: any) {
 
 export function serializeProduct(product: any) {
   if (!product) return null
+  const stockStatus = stockStatusOf(Number(product.quantity || 0), Number(product.minQuantity || 0))
   return {
     ...product,
     costPrice: serializeDecimal(product.costPrice),
     salePrice: serializeDecimal(product.salePrice),
     categoryName: product.category?.name,
+    maxQuantity: product.maxQuantity ?? 0,
+    stockStatus,
+    stockStatusLabel: STOCK_STATUS_LABELS[stockStatus],
+  }
+}
+
+export function serializeMovement(movement: any) {
+  if (!movement) return null
+  const type = normalizeMovementType(movement.type)
+  const { product, user, supplier, ...rest } = movement
+  const unitCost = movement.unitCost == null ? null : serializeDecimal(movement.unitCost)
+  return {
+    ...rest,
+    type,
+    unitCost,
+    total: unitCost == null ? null : money(unitCost).times(movement.quantity || 0).toFixed(2),
+    typeLabel: MOVEMENT_TYPE_LABELS[type] || type,
+    signedQuantity: type === 'ENTRADA' ? movement.quantity : -Math.abs(movement.quantity || 0),
+    productName: product?.name,
+    productSku: product?.sku,
+    productUnit: product?.unit,
+    userName: user?.name,
+    supplierName: supplier?.name,
+    originLabel: ORIGIN_LABELS[movement.originType] || movement.originType || 'Manual',
+    reasonLabel: REASON_LABELS[movement.reason] || movement.reason || '—',
   }
 }
 

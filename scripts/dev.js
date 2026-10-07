@@ -5,6 +5,7 @@ const root = path.resolve(__dirname, '..')
 process.env.NODE_ENV = 'development'
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'file:./dev.db'
 process.env.API_PORT = process.env.API_PORT || '3456'
+process.env.PUBLIC_WEB_PORT = '5173'
 
 const built = spawnSync('npx', ['esbuild', 'src/electron/main.ts', 'src/electron/preload.ts', '--bundle', '--platform=node', '--outdir=dist-electron', '--external:electron', '--external:@prisma/client'], {
   cwd: root,

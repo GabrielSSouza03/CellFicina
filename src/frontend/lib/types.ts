@@ -93,12 +93,72 @@ export type Product = {
   id: string
   sku: string
   name: string
+  description?: string
+  categoryId?: string | null
   quantity: number
   minQuantity: number
+  maxQuantity: number
   salePrice: string
   costPrice: string
+  unit: string
+  active: boolean
   categoryName?: string
+  stockStatus: 'NORMAL' | 'ESTOQUE_BAIXO' | 'SEM_ESTOQUE'
+  stockStatusLabel: string
 }
+
+export type ProductCategory = {
+  id: string
+  name: string
+}
+
+export type StockMovement = {
+  id: string
+  productId: string
+  type: string
+  typeLabel: string
+  quantity: number
+  signedQuantity: number
+  unitCost?: string | null
+  total?: string | null
+  previousStock: number
+  resultingStock: number
+  reason?: string | null
+  reasonLabel: string
+  originType: string
+  originLabel: string
+  originId?: string | null
+  description?: string | null
+  documentNumber?: string | null
+  supplierName?: string | null
+  userName?: string | null
+  productName?: string
+  productSku?: string
+  productUnit?: string
+  occurredAt: string
+  createdAt: string
+}
+
+export type StockMutationResult = {
+  movement: StockMovement
+  product: Product
+  previousStock: number
+  resultingStock: number
+  aboveMaximum: boolean
+}
+
+export type StockDashboard = {
+  totalProducts: number
+  activeProducts: number
+  lowStockCount: number
+  outOfStockCount: number
+  stockValue: string
+  lowStock: { id: string; sku: string; name: string; quantity: number; minQuantity: number; unit: string; stockStatus: Product['stockStatus'] }[]
+  recentEntries: StockMovement[]
+  recentExits: StockMovement[]
+}
+
+export type StockOption = { id: string; name: string }
 
 export type CatalogService = {
   id: string
